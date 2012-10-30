@@ -4,15 +4,16 @@ require 'chef_fs/command_line'
 class Chef
   class Knife
     class Download < ChefFS::Knife
-      banner "knife download PATTERNS"
+      banner "knife install  PATTERNS"
 
       common_options
 
-      option :recurse,
-        :long => '--[no-]recurse',
+
+      option :run_list,
+        :long => '--run_list',
         :boolean => true,
         :default => true,
-        :description => "List directories recursively."
+        :description => " Runlist  pattern "
 
       option :purge,
         :long => '--[no-]purge',
@@ -34,11 +35,20 @@ class Chef
         :description => "Don't take action, only print what would happen"
 
       def run
-        patterns = pattern_args_from(name_args.length > 0 ? name_args : [ "" ])
-
+	@node_name = 'pdam-ubuntu' # 'ephemeral'+ Time.now.to_i.to_s
+        @run_list  = pattern_args_from(name_args.length > 0 ? name_args : [ "" ])
+	@node = Chef::Node.new(@node_name)
+        @node.run_list = @run_list 
+	@node.save
+	IO.popen(" knife exec -E (api.get '/nodes/#{@node_name}/cookbooks').each { |cb| pp cb[0] => cb[1].version } " )  { 
+	  |io| while (line = io.gets) do
+		puts line
+	end  
+	}
+	@cookbooklist= "#{line}".split /,/
         # Get the matches (recursively)
-        patterns.each do |pattern|
-          ChefFS::FileSystem.copy_to(pattern, chef_fs, local_fs, config[:recurse] ? nil : 1, config)
+        @cookbooklist.each do |cookbook|
+          ChefFS::FileSystem.copy_to(cookbook , chef_fs, local_fs, config[:recurse] ? nil : 1, config)
         end
       end
     end
